@@ -1,0 +1,145 @@
+package com.yamashiroya.payment_api.controller;
+
+import com.yamashiroya.payment_api.entity.Product;
+import com.yamashiroya.payment_api.repository.ProductRepository;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.UUID;
+import java.util.Collections;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/products")
+public class ProductController {
+
+    private final ProductRepository productRepository;
+
+    public ProductController(ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
+
+    // 全件取得 (GET)
+    @GetMapping
+    public ResponseEntity<List<Product>> getAllProducts() {
+        List<Product> products = productRepository.findAll();
+        if (products == null) {
+            products = Collections.emptyList();
+        }
+        return ResponseEntity.ok(products);
+    }
+
+    // IDで取得 (GET)
+    @GetMapping("/{id}")
+    public ResponseEntity<Product> getProductById(@PathVariable Long id) {
+        return productRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // 商品の追加 (POST)
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public Product createProduct(
+            @RequestParam("image") MultipartFile image,
+            @RequestParam("name") String name,
+            @RequestParam("price") Integer price,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "style", required = false) String style,
+            @RequestParam(value = "color", required = false) String color,
+            @RequestParam(value = "purpose", required = false) String purpose,
+            @RequestParam(value = "recommended", required = false, defaultValue = "false") boolean recommended
+    ) throws IOException {
+        String imageUrl = storeImage(image);
+
+        Product product = new Product();
+        product.setName(name);
+        product.setPrice(price);
+        product.setDescription(description);
+        product.setImageUrl(imageUrl);
+        product.setStyle(style);
+        product.setColor(color);
+        product.setPurpose(purpose);
+        product.setRecommended(recommended);
+
+        return productRepository.save(product);
+    }
+
+    // 商品の更新 (PUT)
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Product> updateProduct(
+            @PathVariable Long id,
+            @RequestParam(value = "image", required = false) MultipartFile image,
+            @RequestParam("name") String name,
+            @RequestParam("price") Integer price,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "style", required = false) String style,
+            @RequestParam(value = "color", required = false) String color,
+            @RequestParam(value = "purpose", required = false) String purpose,
+            @RequestParam(value = "recommended", required = false) Boolean recommended
+    ) {
+        return productRepository.findById(id)
+                .map(product -> {
+                    product.setName(name);
+                    product.setPrice(price);
+                    product.setDescription(description);
+                    if (image != null && !image.isEmpty()) {
+                        try {
+                            product.setImageUrl(storeImage(image));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                    product.setStyle(style);
+                    product.setColor(color);
+                    product.setPurpose(purpose);
+                    if (recommended != null) {
+                        product.setRecommended(recommended);
+                    }
+                    return ResponseEntity.ok(productRepository.save(product));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    private String storeImage(MultipartFile image) throws IOException {
+        if (image == null || image.isEmpty()) {
+            throw new IllegalArgumentException("image is required");
+        }
+
+        Path uploadDir = Paths.get("uploads");
+        Files.createDirectories(uploadDir);
+
+        String original = image.getOriginalFilename();
+        String extension = "";
+        if (original != null) {
+            int dot = original.lastIndexOf('.');
+            if (dot >= 0) {
+                extension = original.substring(dot);
+            }
+        }
+
+        String filename = UUID.randomUUID() + extension;
+        Path destination = uploadDir.resolve(filename).normalize();
+        Files.copy(image.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
+
+        return "/uploads/" + filename;
+    }
+
+    // 商品の削除 (DELETE)
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
+        return productRepository.findById(id)
+                .map(product -> {
+                    productRepository.delete(product);
+                    return ResponseEntity.ok().<Void>build();
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+}
