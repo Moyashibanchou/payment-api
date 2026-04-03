@@ -1,10 +1,13 @@
 package com.yamashiroya.payment_api.entity;
 
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+
+import java.util.List;
 
 @Entity
 @Table(name = "products")
@@ -21,9 +24,13 @@ public class Product {
 
     private String style;
     private String color;
-    private String purpose;
+
+    @Convert(converter = StringListConverter.class)
+    private List<String> purpose;
 
     private boolean recommended;
+
+    private int purchaseCount = 0;
 
     public Product() {
     }
@@ -42,7 +49,7 @@ public class Product {
         this.imageUrl = imageUrl;
         this.style = style;
         this.color = color;
-        this.purpose = purpose;
+        this.purpose = StringListConverter.fromCsv(purpose);
     }
 
     public Long getId() {
@@ -101,11 +108,11 @@ public class Product {
         this.color = color;
     }
 
-    public String getPurpose() {
+    public List<String> getPurpose() {
         return purpose;
     }
 
-    public void setPurpose(String purpose) {
+    public void setPurpose(List<String> purpose) {
         this.purpose = purpose;
     }
 
@@ -115,5 +122,13 @@ public class Product {
 
     public void setRecommended(boolean recommended) {
         this.recommended = recommended;
+    }
+
+    public int getPurchaseCount() {
+        return purchaseCount;
+    }
+
+    public void setPurchaseCount(int purchaseCount) {
+        this.purchaseCount = purchaseCount;
     }
 }

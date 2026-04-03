@@ -1,6 +1,7 @@
 package com.yamashiroya.payment_api.controller;
 
 import com.yamashiroya.payment_api.entity.Product;
+import com.yamashiroya.payment_api.entity.StringListConverter;
 import com.yamashiroya.payment_api.repository.ProductRepository;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -29,8 +30,14 @@ public class ProductController {
 
     // 全件取得 (GET)
     @GetMapping
-    public ResponseEntity<List<Product>> getAllProducts() {
-        List<Product> products = productRepository.findAll();
+    public ResponseEntity<List<Product>> getAllProducts(@RequestParam(value = "sort", required = false) String sort) {
+        List<Product> products;
+        if ("popular".equals(sort)) {
+            products = productRepository.findAllByOrderByPurchaseCountDesc();
+        } else {
+            products = productRepository.findAll();
+        }
+        
         if (products == null) {
             products = Collections.emptyList();
         }
@@ -54,7 +61,7 @@ public class ProductController {
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "style", required = false) String style,
             @RequestParam(value = "color", required = false) String color,
-            @RequestParam(value = "purpose", required = false) String purpose,
+            @RequestParam(value = "purpose", required = false) List<String> purpose,
             @RequestParam(value = "recommended", required = false, defaultValue = "false") boolean recommended
     ) throws IOException {
         String imageUrl = storeImage(image);
@@ -66,7 +73,7 @@ public class ProductController {
         product.setImageUrl(imageUrl);
         product.setStyle(style);
         product.setColor(color);
-        product.setPurpose(purpose);
+        product.setPurpose(normalizePurposes(purpose));
         product.setRecommended(recommended);
 
         return productRepository.save(product);
@@ -82,7 +89,7 @@ public class ProductController {
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "style", required = false) String style,
             @RequestParam(value = "color", required = false) String color,
-            @RequestParam(value = "purpose", required = false) String purpose,
+            @RequestParam(value = "purpose", required = false) List<String> purpose,
             @RequestParam(value = "recommended", required = false) Boolean recommended
     ) {
         return productRepository.findById(id)
@@ -99,13 +106,30 @@ public class ProductController {
                     }
                     product.setStyle(style);
                     product.setColor(color);
-                    product.setPurpose(purpose);
+                    if (purpose != null) {
+                        product.setPurpose(normalizePurposes(purpose));
+                    }
                     if (recommended != null) {
                         product.setRecommended(recommended);
                     }
                     return ResponseEntity.ok(productRepository.save(product));
                 })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    private List<String> normalizePurposes(List<String> purposes) {
+        if (purposes == null || purposes.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        if (purposes.size() == 1) {
+            String only = purposes.get(0);
+            if (only != null && only.contains(",")) {
+                return StringListConverter.fromCsv(only);
+            }
+        }
+
+        return purposes;
     }
 
     private String storeImage(MultipartFile image) throws IOException {
