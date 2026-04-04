@@ -3,6 +3,7 @@ package com.yamashiroya.payment_api.controller;
 import com.yamashiroya.payment_api.entity.Product;
 import com.yamashiroya.payment_api.entity.StringListConverter;
 import com.yamashiroya.payment_api.repository.ProductRepository;
+import com.yamashiroya.payment_api.service.CloudinaryService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -10,11 +11,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.UUID;
 import java.util.Collections;
 import java.util.List;
 
@@ -23,9 +19,11 @@ import java.util.List;
 public class ProductController {
 
     private final ProductRepository productRepository;
+    private final CloudinaryService cloudinaryService;
 
-    public ProductController(ProductRepository productRepository) {
+    public ProductController(ProductRepository productRepository, CloudinaryService cloudinaryService) {
         this.productRepository = productRepository;
+        this.cloudinaryService = cloudinaryService;
     }
 
     // 全件取得 (GET)
@@ -37,7 +35,7 @@ public class ProductController {
         } else {
             products = productRepository.findAll();
         }
-        
+
         if (products == null) {
             products = Collections.emptyList();
         }
@@ -64,7 +62,7 @@ public class ProductController {
             @RequestParam(value = "purpose", required = false) List<String> purpose,
             @RequestParam(value = "recommended", required = false, defaultValue = "false") boolean recommended
     ) throws IOException {
-        String imageUrl = storeImage(image);
+        String imageUrl = cloudinaryService.upload(image);
 
         Product product = new Product();
         product.setName(name);
@@ -99,9 +97,9 @@ public class ProductController {
                     product.setDescription(description);
                     if (image != null && !image.isEmpty()) {
                         try {
-                            product.setImageUrl(storeImage(image));
+                            product.setImageUrl(cloudinaryService.upload(image));
                         } catch (IOException e) {
-                            throw new RuntimeException(e);
+                            throw new RuntimeException("画像のアップロードに失敗しました。", e);
                         }
                     }
                     product.setStyle(style);
@@ -113,6 +111,17 @@ public class ProductController {
                         product.setRecommended(recommended);
                     }
                     return ResponseEntity.ok(productRepository.save(product));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // 商品の削除 (DELETE)
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
+        return productRepository.findById(id)
+                .map(product -> {
+                    productRepository.delete(product);
+                    return ResponseEntity.ok().<Void>build();
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -130,40 +139,5 @@ public class ProductController {
         }
 
         return purposes;
-    }
-
-    private String storeImage(MultipartFile image) throws IOException {
-        if (image == null || image.isEmpty()) {
-            throw new IllegalArgumentException("image is required");
-        }
-
-        Path uploadDir = Paths.get("uploads");
-        Files.createDirectories(uploadDir);
-
-        String original = image.getOriginalFilename();
-        String extension = "";
-        if (original != null) {
-            int dot = original.lastIndexOf('.');
-            if (dot >= 0) {
-                extension = original.substring(dot);
-            }
-        }
-
-        String filename = UUID.randomUUID() + extension;
-        Path destination = uploadDir.resolve(filename).normalize();
-        Files.copy(image.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
-
-        return "/uploads/" + filename;
-    }
-
-    // 商品の削除 (DELETE)
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
-        return productRepository.findById(id)
-                .map(product -> {
-                    productRepository.delete(product);
-                    return ResponseEntity.ok().<Void>build();
-                })
-                .orElse(ResponseEntity.notFound().build());
     }
 }
