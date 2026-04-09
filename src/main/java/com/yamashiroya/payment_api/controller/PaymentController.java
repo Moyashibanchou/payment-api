@@ -18,6 +18,9 @@ public class PaymentController {
     @Value("${komoju.secret-key}")
     private String secretKey;
 
+    @Value("${FRONTEND_URL:http://localhost:5173}")
+    private String frontendUrl;
+
     private final RestTemplate restTemplate;
 
     private final EmailService emailService;
@@ -36,8 +39,12 @@ public class PaymentController {
             Map<String, Object> body = new HashMap<>();
             body.put("amount", paymentRequest.getAmount());
             body.put("currency", "JPY");
-            body.put("return_url", "http://localhost:5173/success");
-            body.put("cancel_url", "http://localhost:5173/checkout");
+            String base = (frontendUrl == null) ? "http://localhost:5173" : frontendUrl.trim();
+            if (base.endsWith("/")) {
+                base = base.substring(0, base.length() - 1);
+            }
+            body.put("return_url", base + "/success");
+            body.put("cancel_url", base + "/checkout");
             body.put("payment_types", Collections.singletonList(paymentRequest.getPaymentMethod()));
 
             // Basic認証の設定
