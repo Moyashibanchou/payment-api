@@ -16,7 +16,7 @@ import java.util.List;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    @Value("${FRONTEND_URL:}")
+    @Value("${FRONTEND_URL:http://localhost:5173}")
     private String frontendUrl;
 
     @Override
@@ -44,40 +44,36 @@ public class WebConfig implements WebMvcConfigurer {
 
     private List<String> buildAllowedOrigins() {
         List<String> origins = new ArrayList<>();
-        origins.add("http://localhost:5173");
         origins.add("http://localhost:5174");
         origins.add("https://yamashiroya.vercel.app");
-        origins.addAll(normalizeOrigins(frontendUrl));
+
+        String normalizedFrontend = normalizeOrigin(frontendUrl);
+        if (normalizedFrontend != null) {
+            origins.add(normalizedFrontend);
+        }
+
+        origins.add("http://localhost:5173");
         return origins;
     }
 
-    private List<String> normalizeOrigins(String raw) {
+    private String normalizeOrigin(String raw) {
         if (raw == null) {
-            return List.of();
+            return null;
         }
 
-        String trimmed = raw.trim();
-        if (trimmed.isEmpty()) {
-            return List.of();
+        String o = raw.trim();
+        if (o.isEmpty()) {
+            return null;
         }
 
-        String[] parts = trimmed.split(",");
-        List<String> result = new ArrayList<>();
-        for (String p : parts) {
-            if (p == null) {
-                continue;
-            }
-            String o = p.trim();
-            if (o.isEmpty()) {
-                continue;
-            }
-            if (o.endsWith("/")) {
-                o = o.substring(0, o.length() - 1);
-            }
-            if (!o.isEmpty()) {
-                result.add(o);
-            }
+        if (o.contains(",")) {
+            o = o.split(",")[0].trim();
         }
-        return result;
+
+        if (o.endsWith("/")) {
+            o = o.substring(0, o.length() - 1);
+        }
+
+        return o.isEmpty() ? null : o;
     }
 }
