@@ -131,8 +131,10 @@ public class PaymentController {
             Integer resolvedAmount = totalAmount;
             String resolvedCurrency = "JPY";
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                System.out.println("[verify-session] komoju response keys=" + response.getBody().keySet());
                 Object statusObj = response.getBody().get("status");
                 String status = statusObj == null ? "" : String.valueOf(statusObj);
+                System.out.println("[verify-session] komoju status=" + status);
                 verified = status.equalsIgnoreCase("completed")
                         || status.equalsIgnoreCase("paid")
                         || status.equalsIgnoreCase("succeeded")
@@ -140,6 +142,7 @@ public class PaymentController {
 
                 if (resolvedAmount == null) {
                     Object amountObj = response.getBody().get("amount");
+                    System.out.println("[verify-session] komoju amount(raw)=" + amountObj);
                     if (amountObj instanceof Number) {
                         resolvedAmount = ((Number) amountObj).intValue();
                     } else if (amountObj != null) {
@@ -151,10 +154,17 @@ public class PaymentController {
                 }
 
                 Object currencyObj = response.getBody().get("currency");
+                System.out.println("[verify-session] komoju currency(raw)=" + currencyObj);
                 if (currencyObj != null && !String.valueOf(currencyObj).isBlank()) {
                     resolvedCurrency = String.valueOf(currencyObj);
                 }
             }
+
+            if (resolvedAmount == null) {
+                resolvedAmount = 0;
+            }
+
+            System.out.println("[verify-session] verified=" + verified + ", sessionId=" + sessionId + ", resolvedAmount=" + resolvedAmount + ", resolvedCurrency=" + resolvedCurrency);
 
             Map<String, Object> result = new HashMap<>();
             result.put("verified", verified);
@@ -175,6 +185,9 @@ public class PaymentController {
                     order.setCurrency(resolvedCurrency);
                     order.setTotalAmount(resolvedAmount);
                     orderRepository.save(order);
+                    System.out.println("[verify-session] order saved: sessionId=" + sessionId + ", amount=" + resolvedAmount);
+                } else {
+                    System.out.println("[verify-session] order already exists: sessionId=" + sessionId);
                 }
             }
 

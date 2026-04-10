@@ -68,6 +68,8 @@ public class AdminStatsService {
         long totalOrders = orderRepository.countByCreatedAtBetween(from, to);
         long totalSessions = analyticsEventRepository.countByEventTypeAndCreatedAtBetween(EVENT_SESSION, from, to);
 
+        System.out.println("[admin-stats] from=" + from + " to=" + to + " revenue=" + totalRevenue + " orders=" + totalOrders + " sessions=" + totalSessions);
+
         FunnelStats funnel = new FunnelStats();
         funnel.setCartAdds(analyticsEventRepository.countByEventTypeAndCreatedAtBetween(EVENT_CART_ADD, from, to));
         funnel.setCheckoutStarts(analyticsEventRepository.countByEventTypeAndCreatedAtBetween(EVENT_CHECKOUT_START, from, to));
