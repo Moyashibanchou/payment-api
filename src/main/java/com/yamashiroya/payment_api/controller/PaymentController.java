@@ -1,6 +1,9 @@
 package com.yamashiroya.payment_api.controller;
 
 import com.yamashiroya.payment_api.dto.PaymentRequest;
+import com.yamashiroya.payment_api.entity.Order;
+import com.yamashiroya.payment_api.repository.OrderRepository;
+import com.yamashiroya.payment_api.service.AnalyticsEventService;
 import com.yamashiroya.payment_api.service.EmailService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -15,6 +18,9 @@ import java.util.Map;
 @RequestMapping("/api/payments")
 public class PaymentController {
 
+    private static final String EVENT_CHECKOUT_START = "CHECKOUT_START";
+    private static final String EVENT_CHECKOUT_COMPLETE = "CHECKOUT_COMPLETE";
+
     @Value("${komoju.secret-key}")
     private String secretKey;
 
@@ -25,9 +31,20 @@ public class PaymentController {
 
     private final EmailService emailService;
 
-    public PaymentController(RestTemplate restTemplate, EmailService emailService) {
+    private final AnalyticsEventService analyticsEventService;
+
+    private final OrderRepository orderRepository;
+
+    public PaymentController(
+            RestTemplate restTemplate,
+            EmailService emailService,
+            AnalyticsEventService analyticsEventService,
+            OrderRepository orderRepository
+    ) {
         this.restTemplate = restTemplate;
         this.emailService = emailService;
+        this.analyticsEventService = analyticsEventService;
+        this.orderRepository = orderRepository;
     }
 
     @PostMapping("/create-session")
@@ -59,6 +76,20 @@ public class PaymentController {
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 String sessionUrl = (String) response.getBody().get("session_url");
+
+                String paymentSessionId = null;
+                Object idObj = response.getBody().get("id");
+                if (idObj != null) {
+                    paymentSessionId = String.valueOf(idObj);
+                }
+                if (paymentSessionId == null || paymentSessionId.isBlank()) {
+                    Object sessionIdObj = response.getBody().get("session_id");
+                    if (sessionIdObj != null) {
+                        paymentSessionId = String.valueOf(sessionIdObj);
+                    }
+                }
+                analyticsEventService.record(EVENT_CHECKOUT_START, null, paymentSessionId);
+
                 Map<String, String> result = new HashMap<>();
                 result.put("checkoutUrl", sessionUrl);
                 return ResponseEntity.ok(result);
@@ -108,6 +139,20 @@ public class PaymentController {
             if (verified && email != null && !email.isBlank()) {
                 String resolvedOrderNo = (orderNo == null || orderNo.isBlank()) ? "(unknown)" : orderNo;
                 emailService.sendOrderConfirmationEmail(email, resolvedOrderNo, items, totalAmount);
+            }
+
+            if (verified) {
+                analyticsEventService.record(EVENT_CHECKOUT_COMPLETE, null, sessionId);
+
+                if (orderRepository.findByPaymentSessionId(sessionId).isEmpty()) {
+                    Order order = new Order();
+                    order.setPaymentSessionId(sessionId);
+                    order.setOrderNo(orderNo);
+                    order.setEmail(email);
+                    order.setCurrency("JPY");
+                    order.setTotalAmount(totalAmount);
+                    orderRepository.save(order);
+                }
             }
 
             return ResponseEntity.ok(result);
