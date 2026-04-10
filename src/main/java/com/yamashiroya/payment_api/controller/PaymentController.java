@@ -14,6 +14,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -177,7 +178,8 @@ public class PaymentController {
             if (verified) {
                 analyticsEventService.record(EVENT_CHECKOUT_COMPLETE, null, sessionId);
 
-                if (orderRepository.findByPaymentSessionId(sessionId).isEmpty()) {
+                Optional<Order> existingOpt = orderRepository.findByPaymentSessionId(sessionId);
+                if (existingOpt.isEmpty()) {
                     Order order = new Order();
                     order.setPaymentSessionId(sessionId);
                     order.setOrderNo(orderNo);
@@ -187,17 +189,16 @@ public class PaymentController {
                     orderRepository.save(order);
                     System.out.println("[verify-session] order saved: sessionId=" + sessionId + ", amount=" + resolvedAmount);
                 } else {
-                    orderRepository.findByPaymentSessionId(sessionId).ifPresent(existing -> {
-                        Integer existingAmount = existing.getTotalAmount();
-                        if ((existingAmount == null || existingAmount <= 0) && resolvedAmount != null && resolvedAmount > 0) {
-                            existing.setTotalAmount(resolvedAmount);
-                            existing.setCurrency(resolvedCurrency);
-                            orderRepository.save(existing);
-                            System.out.println("[verify-session] order updated: sessionId=" + sessionId + ", amount=" + resolvedAmount);
-                        } else {
-                            System.out.println("[verify-session] order already exists: sessionId=" + sessionId);
-                        }
-                    });
+                    Order existing = existingOpt.get();
+                    Integer existingAmount = existing.getTotalAmount();
+                    if ((existingAmount == null || existingAmount <= 0) && resolvedAmount != null && resolvedAmount > 0) {
+                        existing.setTotalAmount(resolvedAmount);
+                        existing.setCurrency(resolvedCurrency);
+                        orderRepository.save(existing);
+                        System.out.println("[verify-session] order updated: sessionId=" + sessionId + ", amount=" + resolvedAmount);
+                    } else {
+                        System.out.println("[verify-session] order already exists: sessionId=" + sessionId);
+                    }
                 }
             }
 
