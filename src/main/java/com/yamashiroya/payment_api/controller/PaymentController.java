@@ -140,7 +140,7 @@ public class PaymentController {
                         || status.equalsIgnoreCase("succeeded")
                         || status.equalsIgnoreCase("authorized");
 
-                if (resolvedAmount == null) {
+                if (resolvedAmount == null || resolvedAmount <= 0) {
                     Object amountObj = response.getBody().get("amount");
                     System.out.println("[verify-session] komoju amount(raw)=" + amountObj);
                     if (amountObj instanceof Number) {
@@ -187,7 +187,17 @@ public class PaymentController {
                     orderRepository.save(order);
                     System.out.println("[verify-session] order saved: sessionId=" + sessionId + ", amount=" + resolvedAmount);
                 } else {
-                    System.out.println("[verify-session] order already exists: sessionId=" + sessionId);
+                    orderRepository.findByPaymentSessionId(sessionId).ifPresent(existing -> {
+                        Integer existingAmount = existing.getTotalAmount();
+                        if ((existingAmount == null || existingAmount <= 0) && resolvedAmount != null && resolvedAmount > 0) {
+                            existing.setTotalAmount(resolvedAmount);
+                            existing.setCurrency(resolvedCurrency);
+                            orderRepository.save(existing);
+                            System.out.println("[verify-session] order updated: sessionId=" + sessionId + ", amount=" + resolvedAmount);
+                        } else {
+                            System.out.println("[verify-session] order already exists: sessionId=" + sessionId);
+                        }
+                    });
                 }
             }
 
