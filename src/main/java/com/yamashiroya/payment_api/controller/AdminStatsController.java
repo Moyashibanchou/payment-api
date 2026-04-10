@@ -2,6 +2,7 @@ package com.yamashiroya.payment_api.controller;
 
 import com.yamashiroya.payment_api.dto.AdminStatsResponse;
 import com.yamashiroya.payment_api.service.AdminStatsService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,6 +25,7 @@ public class AdminStatsController {
 
     @GetMapping
     public ResponseEntity<AdminStatsResponse> getStats(
+            HttpServletRequest request,
             @RequestParam(value = "month", required = false)
             @DateTimeFormat(pattern = "yyyy-MM") YearMonth month,
             @RequestParam(value = "from", required = false)
@@ -31,6 +33,7 @@ public class AdminStatsController {
             @RequestParam(value = "to", required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
+        System.out.println("★API Request Received: " + request.getRequestURI());
         if (month != null) {
             return ResponseEntity.ok(adminStatsService.getMonthlyStats(month));
         }

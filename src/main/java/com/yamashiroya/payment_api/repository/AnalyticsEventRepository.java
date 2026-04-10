@@ -14,6 +14,8 @@ public interface AnalyticsEventRepository extends JpaRepository<AnalyticsEvent, 
 
     long countByEventTypeAndCreatedAtBetween(String eventType, LocalDateTime from, LocalDateTime to);
 
+    boolean existsByEventTypeAndSessionId(String eventType, String sessionId);
+
     @Query("select e.channel, count(e) from AnalyticsEvent e where e.eventType = :eventType and e.createdAt >= :from and e.createdAt < :to group by e.channel")
     List<Object[]> countByChannelGrouped(@Param("eventType") String eventType, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 }

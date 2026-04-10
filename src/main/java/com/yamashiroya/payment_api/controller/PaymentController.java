@@ -5,6 +5,7 @@ import com.yamashiroya.payment_api.entity.Order;
 import com.yamashiroya.payment_api.repository.OrderRepository;
 import com.yamashiroya.payment_api.service.AnalyticsEventService;
 import com.yamashiroya.payment_api.service.EmailService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -48,8 +49,9 @@ public class PaymentController {
     }
 
     @PostMapping("/create-session")
-    public ResponseEntity<?> createSession(@RequestBody PaymentRequest paymentRequest) {
+    public ResponseEntity<?> createSession(HttpServletRequest request, @RequestBody PaymentRequest paymentRequest) {
         try {
+            System.out.println("★API Request Received: " + request.getRequestURI());
             String url = "https://komoju.com/api/v1/sessions";
 
             // KOMOJU APIへのリクエストボディ作成
@@ -107,6 +109,7 @@ public class PaymentController {
 
     @GetMapping("/verify-session")
     public ResponseEntity<?> verifySession(
+            HttpServletRequest request,
             @RequestParam("sessionId") String sessionId,
             @RequestParam(value = "email", required = false) String email,
             @RequestParam(value = "orderNo", required = false) String orderNo,
@@ -114,6 +117,7 @@ public class PaymentController {
             @RequestParam(value = "totalAmount", required = false) Integer totalAmount
     ) {
         try {
+            System.out.println("★API Request Received: " + request.getRequestURI());
             String url = "https://komoju.com/api/v1/sessions/" + sessionId;
 
             HttpHeaders headers = new HttpHeaders();
@@ -124,6 +128,8 @@ public class PaymentController {
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
 
             boolean verified = false;
+            Integer resolvedAmount = totalAmount;
+            String resolvedCurrency = "JPY";
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 Object statusObj = response.getBody().get("status");
                 String status = statusObj == null ? "" : String.valueOf(statusObj);
@@ -131,6 +137,23 @@ public class PaymentController {
                         || status.equalsIgnoreCase("paid")
                         || status.equalsIgnoreCase("succeeded")
                         || status.equalsIgnoreCase("authorized");
+
+                if (resolvedAmount == null) {
+                    Object amountObj = response.getBody().get("amount");
+                    if (amountObj instanceof Number) {
+                        resolvedAmount = ((Number) amountObj).intValue();
+                    } else if (amountObj != null) {
+                        try {
+                            resolvedAmount = Integer.parseInt(String.valueOf(amountObj));
+                        } catch (NumberFormatException ignored) {
+                        }
+                    }
+                }
+
+                Object currencyObj = response.getBody().get("currency");
+                if (currencyObj != null && !String.valueOf(currencyObj).isBlank()) {
+                    resolvedCurrency = String.valueOf(currencyObj);
+                }
             }
 
             Map<String, Object> result = new HashMap<>();
@@ -149,8 +172,8 @@ public class PaymentController {
                     order.setPaymentSessionId(sessionId);
                     order.setOrderNo(orderNo);
                     order.setEmail(email);
-                    order.setCurrency("JPY");
-                    order.setTotalAmount(totalAmount);
+                    order.setCurrency(resolvedCurrency);
+                    order.setTotalAmount(resolvedAmount);
                     orderRepository.save(order);
                 }
             }

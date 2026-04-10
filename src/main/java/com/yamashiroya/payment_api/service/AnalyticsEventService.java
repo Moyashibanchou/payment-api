@@ -18,6 +18,12 @@ public class AnalyticsEventService {
             return;
         }
 
+        if (sessionId != null && !sessionId.isBlank()) {
+            if (analyticsEventRepository.existsByEventTypeAndSessionId(eventType, sessionId)) {
+                return;
+            }
+        }
+
         AnalyticsEvent e = new AnalyticsEvent();
         e.setEventType(eventType);
         e.setChannel(channel);

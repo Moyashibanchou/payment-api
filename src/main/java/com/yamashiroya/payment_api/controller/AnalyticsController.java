@@ -2,6 +2,7 @@ package com.yamashiroya.payment_api.controller;
 
 import com.yamashiroya.payment_api.dto.AnalyticsEventRequest;
 import com.yamashiroya.payment_api.service.AnalyticsEventService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,7 +23,8 @@ public class AnalyticsController {
     }
 
     @PostMapping("/event")
-    public ResponseEntity<?> recordEvent(@RequestBody AnalyticsEventRequest request) {
+    public ResponseEntity<?> recordEvent(HttpServletRequest servletRequest, @RequestBody AnalyticsEventRequest request) {
+        System.out.println("★API Request Received: " + servletRequest.getRequestURI());
         analyticsEventService.record(request.getEventType(), request.getChannel(), request.getSessionId());
         Map<String, Object> result = new HashMap<>();
         result.put("ok", true);
