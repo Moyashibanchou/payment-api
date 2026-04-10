@@ -17,7 +17,15 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private String orderId;
+
+    private String status;
+
     private String orderNo;
+
+    private Integer amount;
+
+    private Integer finalAmount;
 
     private Integer totalAmount;
 
@@ -28,6 +36,8 @@ public class Order {
     private String paymentSessionId;
 
     private LocalDateTime createdAt;
+
+    private LocalDateTime confirmedAt;
 
     public Order() {
     }
@@ -40,12 +50,44 @@ public class Order {
         this.id = id;
     }
 
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(String orderId) {
+        this.orderId = orderId;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
     public String getOrderNo() {
         return orderNo;
     }
 
     public void setOrderNo(String orderNo) {
         this.orderNo = orderNo;
+    }
+
+    public Integer getAmount() {
+        return amount;
+    }
+
+    public void setAmount(Integer amount) {
+        this.amount = amount;
+    }
+
+    public Integer getFinalAmount() {
+        return finalAmount;
+    }
+
+    public void setFinalAmount(Integer finalAmount) {
+        this.finalAmount = finalAmount;
     }
 
     public Integer getTotalAmount() {
@@ -86,6 +128,14 @@ public class Order {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getConfirmedAt() {
+        return confirmedAt;
+    }
+
+    public void setConfirmedAt(LocalDateTime confirmedAt) {
+        this.confirmedAt = confirmedAt;
     }
 
     @PrePersist

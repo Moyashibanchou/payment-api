@@ -11,10 +11,12 @@ import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/payments")
@@ -22,6 +24,12 @@ public class PaymentController {
 
     private static final String EVENT_CHECKOUT_START = "CHECKOUT_START";
     private static final String EVENT_CHECKOUT_COMPLETE = "CHECKOUT_COMPLETE";
+
+    private static final String EVENT_PURCHASE_COMPLETE = "PURCHASE_COMPLETE";
+
+    private static final String ORDER_STATUS_PENDING = "PENDING";
+
+    private static final String ORDER_STATUS_CONFIRMED = "CONFIRMED";
 
     @Value("${komoju.secret-key}")
     private String secretKey;
@@ -53,6 +61,7 @@ public class PaymentController {
     public ResponseEntity<?> createSession(HttpServletRequest request, @RequestBody PaymentRequest paymentRequest) {
         try {
             System.out.println("★API Request Received: " + request.getRequestURI());
+            System.out.println("[create-session] received amount=" + paymentRequest.getAmount() + ", paymentMethod=" + paymentRequest.getPaymentMethod());
             String url = "https://komoju.com/api/v1/sessions";
 
             // KOMOJU APIへのリクエストボディ作成
@@ -91,10 +100,25 @@ public class PaymentController {
                         paymentSessionId = String.valueOf(sessionIdObj);
                     }
                 }
+
+                String orderId = UUID.randomUUID().toString();
+                Order order = new Order();
+                order.setOrderId(orderId);
+                order.setStatus(ORDER_STATUS_PENDING);
+                order.setAmount(paymentRequest.getAmount());
+                order.setFinalAmount(null);
+                order.setCurrency("JPY");
+                order.setPaymentSessionId(paymentSessionId);
+                orderRepository.save(order);
+                System.out.println("[create-session] issued orderId=" + orderId + ", sessionId=" + paymentSessionId);
+
                 analyticsEventService.record(EVENT_CHECKOUT_START, null, paymentSessionId);
 
-                Map<String, String> result = new HashMap<>();
+                Map<String, Object> result = new HashMap<>();
                 result.put("checkoutUrl", sessionUrl);
+                result.put("orderId", orderId);
+                result.put("amount", paymentRequest.getAmount());
+                result.put("status", ORDER_STATUS_PENDING);
                 return ResponseEntity.ok(result);
             } else {
                 return ResponseEntity.status(response.getStatusCode()).body("KOMOJU API error");
@@ -119,6 +143,7 @@ public class PaymentController {
     ) {
         try {
             System.out.println("★API Request Received: " + request.getRequestURI());
+            System.out.println("[verify-session] sessionId=" + sessionId);
             String url = "https://komoju.com/api/v1/sessions/" + sessionId;
 
             HttpHeaders headers = new HttpHeaders();
@@ -176,29 +201,43 @@ public class PaymentController {
             }
 
             if (verified) {
-                analyticsEventService.record(EVENT_CHECKOUT_COMPLETE, null, sessionId);
-
                 Optional<Order> existingOpt = orderRepository.findByPaymentSessionId(sessionId);
                 if (existingOpt.isEmpty()) {
-                    Order order = new Order();
-                    order.setPaymentSessionId(sessionId);
-                    order.setOrderNo(orderNo);
-                    order.setEmail(email);
-                    order.setCurrency(resolvedCurrency);
-                    order.setTotalAmount(resolvedAmount);
-                    orderRepository.save(order);
-                    System.out.println("[verify-session] order saved: sessionId=" + sessionId + ", amount=" + resolvedAmount);
+                    System.out.println("[verify-session] order not found for sessionId=" + sessionId);
+                    result.put("orderId", null);
+                    result.put("amount", resolvedAmount);
+                    result.put("status", null);
                 } else {
                     Order existing = existingOpt.get();
-                    Integer existingAmount = existing.getTotalAmount();
-                    if ((existingAmount == null || existingAmount <= 0) && resolvedAmount != null && resolvedAmount > 0) {
-                        existing.setTotalAmount(resolvedAmount);
-                        existing.setCurrency(resolvedCurrency);
-                        orderRepository.save(existing);
-                        System.out.println("[verify-session] order updated: sessionId=" + sessionId + ", amount=" + resolvedAmount);
+                    String beforeStatus = existing.getStatus();
+                    Integer plannedAmount = existing.getAmount();
+                    Integer finalAmount = existing.getFinalAmount();
+
+                    System.out.println("[verify-session] found orderId=" + existing.getOrderId() + ", beforeStatus=" + beforeStatus + ", plannedAmount=" + plannedAmount + ", finalAmount=" + finalAmount);
+
+                    if (ORDER_STATUS_CONFIRMED.equalsIgnoreCase(beforeStatus)) {
+                        System.out.println("[verify-session] already CONFIRMED. skip update.");
                     } else {
-                        System.out.println("[verify-session] order already exists: sessionId=" + sessionId);
+                        if ((plannedAmount == null || plannedAmount <= 0) && resolvedAmount != null && resolvedAmount > 0) {
+                            existing.setAmount(resolvedAmount);
+                        }
+                        existing.setStatus(ORDER_STATUS_CONFIRMED);
+                        existing.setConfirmedAt(LocalDateTime.now());
+                        existing.setFinalAmount(existing.getAmount() == null ? resolvedAmount : existing.getAmount());
+                        existing.setCurrency(resolvedCurrency);
+                        existing.setOrderNo(orderNo);
+                        existing.setEmail(email);
+                        orderRepository.save(existing);
+
+                        System.out.println("[verify-session] status updated: orderId=" + existing.getOrderId() + " " + beforeStatus + " -> " + existing.getStatus() + ", finalAmount=" + existing.getFinalAmount());
+
+                        analyticsEventService.record(EVENT_CHECKOUT_COMPLETE, null, sessionId);
+                        analyticsEventService.record(EVENT_PURCHASE_COMPLETE, null, sessionId);
                     }
+
+                    result.put("orderId", existing.getOrderId());
+                    result.put("amount", existing.getAmount());
+                    result.put("status", existing.getStatus());
                 }
             }
 
@@ -206,6 +245,9 @@ public class PaymentController {
         } catch (Exception e) {
             Map<String, Object> result = new HashMap<>();
             result.put("verified", false);
+            result.put("orderId", null);
+            result.put("amount", null);
+            result.put("status", null);
             return ResponseEntity.ok(result);
         }
     }

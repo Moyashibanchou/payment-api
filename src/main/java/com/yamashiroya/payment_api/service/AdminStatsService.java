@@ -22,6 +22,8 @@ public class AdminStatsService {
     private static final String EVENT_CHECKOUT_START = "CHECKOUT_START";
     private static final String EVENT_CHECKOUT_COMPLETE = "CHECKOUT_COMPLETE";
 
+    private static final String ORDER_STATUS_CONFIRMED = "CONFIRMED";
+
     private final OrderRepository orderRepository;
     private final AnalyticsEventRepository analyticsEventRepository;
 
@@ -64,8 +66,8 @@ public class AdminStatsService {
     }
 
     private PeriodStats buildPeriodStats(LocalDateTime from, LocalDateTime to) {
-        long totalRevenue = orderRepository.sumTotalAmountBetween(from, to);
-        long totalOrders = orderRepository.countByCreatedAtBetween(from, to);
+        long totalRevenue = orderRepository.sumFinalAmountByStatusBetween(ORDER_STATUS_CONFIRMED, from, to);
+        long totalOrders = orderRepository.countByStatusAndConfirmedAtBetween(ORDER_STATUS_CONFIRMED, from, to);
         long totalSessions = analyticsEventRepository.countByEventTypeAndCreatedAtBetween(EVENT_SESSION, from, to);
 
         System.out.println("[admin-stats] from=" + from + " to=" + to + " revenue=" + totalRevenue + " orders=" + totalOrders + " sessions=" + totalSessions);

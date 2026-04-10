@@ -18,4 +18,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query("select coalesce(sum(o.totalAmount), 0) from Order o where o.createdAt >= :from and o.createdAt < :to")
     long sumTotalAmountBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
+
+    long countByStatusAndConfirmedAtBetween(String status, LocalDateTime from, LocalDateTime to);
+
+    @Query("select coalesce(sum(o.finalAmount), 0) from Order o where o.status = :status and o.confirmedAt >= :from and o.confirmedAt < :to")
+    long sumFinalAmountByStatusBetween(
+            @Param("status") String status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
 }
