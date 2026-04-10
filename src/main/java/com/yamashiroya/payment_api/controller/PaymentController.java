@@ -8,6 +8,7 @@ import com.yamashiroya.payment_api.service.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
@@ -20,6 +21,13 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/payments")
+@CrossOrigin(
+        origins = {
+                "https://yamashiroya.vercel.app",
+                "http://localhost:5173"
+        },
+        allowCredentials = "true"
+)
 public class PaymentController {
 
     private static final String EVENT_CHECKOUT_START = "CHECKOUT_START";
