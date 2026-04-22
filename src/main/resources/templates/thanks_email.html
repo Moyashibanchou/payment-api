@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <title>【山城屋】ご注文を承りました</title>
+    <style>
+        body {
+            font-family: "Yu Mincho", "MS PMincho", "Hiragino Mincho ProN", serif;
+            color: #333333;
+            line-height: 1.8;
+            background-color: #fcfbf9;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border: 1px solid #e0dfd5;
+            padding: 40px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .header {
+            text-align: center;
+            border-bottom: 1px solid #8e1728;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            font-size: 26px;
+            font-weight: bold;
+            color: #8e1728;
+            letter-spacing: 4px;
+        }
+
+        .greeting {
+            margin-bottom: 30px;
+        }
+
+        .order-details {
+            background-color: #f8f6f0;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-radius: 4px;
+        }
+
+        .order-details th {
+            text-align: left;
+            padding-right: 20px;
+            color: #555555;
+            font-weight: normal;
+        }
+
+        .order-details td {
+            font-weight: bold;
+        }
+
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px dashed #cccccc;
+            font-size: 14px;
+            color: #777777;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">山城屋</div>
+        </div>
+
+        <div class="greeting">
+            <p>拝啓</p>
+            <p>
+                時下ますますご清栄のこととお慶び申し上げます。<br>
+                この度は、数ある店舗の中から「山城屋」にてお買い上げいただき、<br>
+                誠にありがとうございます。
+            </p>
+            <p>
+                お客様からのご注文（決済手続き）が滞りなく完了いたしましたことを、<br>
+                ここにお知らせ申し上げます。
+            </p>
+            <p>
+                老舗の暖簾にかけて、心を込めてお品物をご用意し、<br>
+                お手元にお届けいたしますので、今しばらくお待ちくださいませ。
+            </p>
+        </div>
+
+        <div class="order-details">
+            <p
+                style="margin-top: 0; font-size: 16px; color: #8e1728; border-bottom: 1px solid #e0dfd5; padding-bottom: 10px;">
+                ご注文内容</p>
+            <table>
+                <tr>
+                    <th>ご注文番号</th>
+                    <td>{{orderNo}}</td>
+                </tr>
+                <tr>
+                    <th>ご購入商品</th>
+                    <td>{{items}}</td>
+                </tr>
+                <tr>
+                    <th>お支払合計</th>
+                    <td>{{totalAmount}} 円</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="greeting">
+            <p>
+                商品の発送準備が整いましたら、改めてご案内の申し状をお送りいたします。<br>
+                ご不明な点などがございましたら、いつでもお気軽にお申し付けください。
+            </p>
+            <p>敬具</p>
+        </div>
+
+        <div class="footer">
+            <p>
+                山城屋（Yamashiroya）<br>
+                〒047-0024 北海道小樽市花園4丁目4-2<br>
+                電話: 0134-23-1187<br>
+                Email: yamashiroya1187@gmail.com<br>
+                営業時間: 9:00 〜 18:00<br>
+                定休日: 毎年　元日1月1日
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>

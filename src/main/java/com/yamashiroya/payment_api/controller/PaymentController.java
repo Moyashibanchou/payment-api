@@ -82,7 +82,14 @@ public class PaymentController {
             }
             body.put("return_url", base + "/success");
             body.put("cancel_url", base + "/checkout");
-            body.put("payment_types", Collections.singletonList(paymentRequest.getPaymentMethod()));
+            List<String> types = new java.util.ArrayList<>();
+            if (paymentRequest.getPaymentMethod() != null && !paymentRequest.getPaymentMethod().isBlank()) {
+                types.add(paymentRequest.getPaymentMethod());
+            }
+            if (!types.contains("paidy")) {
+                types.add("paidy");
+            }
+            body.put("payment_types", types);
 
             // Basic認証の設定
             HttpHeaders headers = new HttpHeaders();
@@ -257,6 +264,55 @@ public class PaymentController {
             result.put("amount", null);
             result.put("status", null);
             return ResponseEntity.ok(result);
+        }
+    }
+    @PostMapping("/webhook")
+    public ResponseEntity<?> handleWebhook(@RequestBody Map<String, Object> payload) {
+        try {
+            System.out.println("★Webhook Received: " + payload);
+            String type = (String) payload.get("type");
+            Map<String, Object> data = (Map<String, Object>) payload.get("data");
+
+            if ("payment.captured".equals(type) || "payment.completed".equals(type) || "payment.authorized".equals(type)) {
+                if (data != null) {
+                    Map<String, Object> paymentData = data;
+                    String sessionId = (String) paymentData.get("session");
+                    if (sessionId == null) sessionId = (String) paymentData.get("session_id");
+
+                    if (sessionId != null) {
+                        System.out.println("[webhook] Processing payment for session: " + sessionId);
+                        
+                        Optional<Order> existingOpt = orderRepository.findByPaymentSessionId(sessionId);
+                        if (existingOpt.isPresent()) {
+                            Order existing = existingOpt.get();
+                            if (!ORDER_STATUS_CONFIRMED.equalsIgnoreCase(existing.getStatus())) {
+                                existing.setStatus(ORDER_STATUS_CONFIRMED);
+                                existing.setConfirmedAt(LocalDateTime.now());
+                                
+                                Object amountObj = paymentData.get("amount");
+                                if (amountObj instanceof Number) {
+                                    existing.setFinalAmount(((Number) amountObj).intValue());
+                                } else if (amountObj != null) {
+                                    try {
+                                        existing.setFinalAmount(Integer.parseInt(String.valueOf(amountObj)));
+                                    } catch (NumberFormatException ignored) {}
+                                }
+                                orderRepository.save(existing);
+                                System.out.println("[webhook] Order " + existing.getOrderId() + " confirmed via webhook");
+                                
+                                analyticsEventService.record(EVENT_CHECKOUT_COMPLETE, null, sessionId);
+                                analyticsEventService.record(EVENT_PURCHASE_COMPLETE, null, sessionId);
+                            }
+                        } else {
+                            System.out.println("[webhook] Order not found for session: " + sessionId);
+                        }
+                    }
+                }
+            }
+            return ResponseEntity.ok("Webhook received");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Webhook error");
         }
     }
 }
