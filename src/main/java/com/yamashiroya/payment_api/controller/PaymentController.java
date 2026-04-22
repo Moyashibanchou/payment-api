@@ -82,7 +82,7 @@ public class PaymentController {
             }
             body.put("return_url", base + "/success");
             body.put("cancel_url", base + "/checkout");
-            List<String> types = new java.util.ArrayList<>();
+            java.util.List<String> types = new java.util.ArrayList<>();
             if (paymentRequest.getPaymentMethod() != null && !paymentRequest.getPaymentMethod().isBlank()) {
                 types.add(paymentRequest.getPaymentMethod());
             }
